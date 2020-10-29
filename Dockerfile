@@ -1,5 +1,5 @@
 # Ansible Tower Dockerfie
-FROM ubuntu:16.04
+FROM centos:8
 
 WORKDIR /opt
 
@@ -14,32 +14,31 @@ ADD http://releases.ansible.com/ansible-tower/setup/ansible-tower-setup-${ANSIBL
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY inventory inventory
 
-RUN apt-get -qq update \
-	&& apt-get -yqq upgrade \
-	&& apt-get -yqq install \
-			locales \
-			gnupg2 \
-			gnupg \
-			libpython2.7 \
-			python \
-			python-pip \
-			python-dev \
-			ca-certificates \
-			debconf \
-			apt-transport-https \
-			sudo \
-	&& locale-gen "en_US.UTF-8" \
-	&& echo "locales	locales/default_environment_locale	select	en_US.UTF-8" | debconf-set-selections \
-	&& dpkg-reconfigure locales \
-	&& mkdir -p /var/log/tower \
-	&& tar xvf ansible-tower-setup-${ANSIBLE_TOWER_VER}.tar.gz \
-	&& rm -f ansible-tower-setup-${ANSIBLE_TOWER_VER}.tar.gz \
-	&& pip install ansible \
-	&& mv inventory ansible-tower-setup-${ANSIBLE_TOWER_VER}/inventory
+RUN dnf --enablerepo=PowerTools install -y perl-Locale-gettext \
+                                           perl-Text-CharWidth \
+                                           perl-Text-WrapI18N \
+    && dnf clean all \
+    && rm -rf /var/cache/yum
+
+RUN yum install -y epel-release \
+    && yum makecache \
+    && yum install -y gnupg \
+                      python3 \
+                      ca-certificates \
+                      debconf \
+                      sudo \
+                      langpacks-en \
+                      glibc-all-langpacks \
+    && yum clean all \
+    && mkdir -p /var/log/tower \
+    && tar xvf ansible-tower-setup-${ANSIBLE_TOWER_VER}.tar.gz \
+    && rm -f ansible-tower-setup-${ANSIBLE_TOWER_VER}.tar.gz \
+    && pip3 install ansible \
+    && mv inventory ansible-tower-setup-${ANSIBLE_TOWER_VER}/inventory
 
 RUN cd /opt/ansible-tower-setup-${ANSIBLE_TOWER_VER} \
-	&& ./setup.sh \
-	&& chmod +x /docker-entrypoint.sh
+    && ./setup.sh \
+    && chmod +x /docker-entrypoint.sh
 
 # volumes and ports
 VOLUME ["${PG_DATA}", "${AWX_PROJECTS}", "/certs",]
